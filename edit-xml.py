@@ -270,8 +270,7 @@ demo_files_class_dict = [
 # </Session>'''
 
 
-def main():
-
+def run():
     if not path.exists('data.pl'):
         sampleManager = S3SamplesManager()
         sampleManager.start()
@@ -285,7 +284,7 @@ def main():
         sampleManager = pickleData
         dataFile.close()
 
-    text = '''<?xml version="1.0" encoding="UTF-8" standalone="no"?> 
+    text = '''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <Session genome="hg38" hasGeneTrack="true" hasSequenceTrack="true" locus="chr1:237334302-237369372" nextAutoscaleGroup="2" version="8">
     <Resources>
         ''' + make_resources(sampleManager.S3Samples) + '''
@@ -305,6 +304,56 @@ def main():
 
     fileTree = ET.ElementTree(ET.fromstring(text))
     fileTree.write('edit-xml-2.xml')
+
+
+def indent(elem, level=0):
+    i = "\n" + level*"\t"
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "\t"
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+
+def main():
+
+    # ADD Panels
+    tempObj = {
+        "filename": "M0356.sorted.bam",
+        "index": "https://praxisgenomics-patient-res.s3.us-east-1.amazonaws.com/nanopore/rando-ONT/bams/M0356.sorted.bam.bai?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIASEJWMTN76OTW345Z%2F20220216%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20220216T211449Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=920cabc890f8e13056c61552cf80753f078d7182618e3d3db9434df45355bbda",
+        "path": "https://praxisgenomics-patient-res.s3.us-east-1.amazonaws.com/nanopore/rando-ONT/bams/M0356.sorted.bam?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIASEJWMTN76OTW345Z%2F20220216%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20220216T211445Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=721f65941799c60a51d2f11d7721ff362755778414e20cd233c036c7d472156f",
+        "type": "bam"
+    }
+
+    # Add Resources
+    mainTree = ET.parse('xml-template.xml')
+    resources = mainTree.find('Resources')
+
+    resource = ET.SubElement(resources, 'Resource')
+    resource.set('index', tempObj.get('index'))
+    resource.set('path', tempObj.get('path'))
+ 
+    root = mainTree.getroot()
+    panel = ET.Element("Panel", Panel = "300", name = "DataPanel", width = "1311")
+
+    coverageTrack = ET.SubElement(panel, "Track", attributeKey=f'{tempObj.get("filename")} Coverage', autoScale="true", clazz="org.broad.igv.sam.CoverageTrack", color="175,175,175", colorScale="ContinuousColorScale;0.0;60.0;255,255,255;175,175,175", fontSize="10", id=f"{tempObj.get('path')}_coverage", name=f'{tempObj.get("filename")} Coverage', snpThreshold="0.2", visible="true")
+    datarange = ET.SubElement(coverageTrack, "DataRange", baseline="0.0", drawBaseline="true", flipAxis="false", maximum="60.0", minimum="0.0", type="LINEAR")
+    
+    junctionTrack = ET.SubElement(panel, "Track", attributeKey=f'{tempObj.get("filename")} Junctions', clazz="org.broad.igv.sam.SpliceJunctionTrack", fontSize="10", groupByStrand="false", height="60", id=f"{tempObj.get('path')}_junctions", name=f"{tempObj.get('filename')} Junctions", visible="false")
+    alignmentTrack = ET.SubElement(panel, "Track", attributeKey=f'{tempObj.get("filename")}', clazz="org.broad.igv.sam.AlignmentTrack", displayMode="EXPANDED", experimentType="THIRD_GEN", fontSize="10", id=f"{tempObj.get('path')}", name=f"{tempObj.get('filename')}", visible="false")
+    renderOptions = ET.SubElement(alignmentTrack, "RenderOptions")
+
+    root.insert(1, panel)
+    indent(root)
+
+    mainTree.write('test.xml')
+
     
 
 

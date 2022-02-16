@@ -1,16 +1,21 @@
 #!/usr/bin/env python
+import sys
+from os import path
+
 from asyncio import subprocess
 from fileinput import filename
 from importlib.abc import ResourceReader
 from random import sample
 from typing import final
+
+
+import logging
 import xml.etree.ElementTree as ET
 import subprocess as sp
-
-import sys
+import boto3 as b3
+from botocore.exceptions import ClientError
 import pickle
 
-from os import path
 
 sys.path.append(".")
 
@@ -111,7 +116,6 @@ def make_resources(sample_list):
     return final_resources
 
 
-
 class IGVFile:
     def __init__(self, filename, path, type, index=''):
         self.filename = filename
@@ -136,18 +140,18 @@ class S3SamplesManager:
     def addS3Samples(self, s3Sample):
         self.S3Samples.append(s3Sample)
 
-    def start(self):
+    def start(self, s3Client):
         if (self.bool_prompt("Add sample?: ")):
-            sampleTemp = self.S3Sample()
-            sampleTemp.start()
+            s3SampleObj = self.S3Sample()
+            s3SampleObj.start(s3Client)
             
-            S3SampleWithFiles = sampleTemp.returnS3Sample()
+            S3SampleWithFiles = s3SampleObj.returnS3Sample()
 
             self.addS3Samples(S3SampleWithFiles)
-            self.start()
+            self.start(s3Client)
 
-    
     class S3Sample:
+
         def __init__(self):
             self.IGVFiles = []
 
@@ -168,19 +172,43 @@ class S3SamplesManager:
             else:
                 self.__string_prompt("Please enter string values only.")
         
-        def start(self):
+        def start(self, s3Client):
             if self.__bool_prompt("Add file for sample?: "):
-                self.createSampleIGVFiles()
-                self.start()
+                # filename = self.__string_prompt("Enter filename: ")
+                # type = self.__string_prompt("Type (VCF, BAM): ")
+                # print("Enter File URL: ")
+                # print("(ex. s3://praxisgenomics-patient-res/novaseq/CA0402/RES123121/e0e4956a-ad90-4cdf-9451-685aff26293f/$SAMPLE.bam)")
+                # url = self.__string_prompt("")
+                # indexUrl = self.__string_prompt("Enter File Index URL: ")
+                filename = "M0354.sorted.bam"
+                type = "bam"
+                url = "s3://praxisgenomics-patient-res/nanopore/rando-ONT/bams/M0354.sorted.bam"
+                indexUrl = "s3://praxisgenomics-patient-res/nanopore/rando-ONT/bams/M0354.sorted.bam.bai"
+                path = self.createPresign(url, s3Client)
+                index = self.createPresign(indexUrl, s3Client)
+                sample = self.IGVFile(filename=filename, url=url, indexUrl=indexUrl, path=path, index=index, type=type)
+                self.IGVFiles.append(sample)
+                
+                self.start(s3Client)
 
-        def createSampleIGVFiles(self):
-            filename = self.__string_prompt("Enter filename: ")
-            type = self.__string_prompt("Type (VCF, BAM): ")
-            path = self.__string_prompt("Enter File URL: ")
-            index = self.__string_prompt("Enter File Index URL: ")
-            # sample = self.IGVFile(filename, path, type, index)
-            sample = self.IGVFile()
-            self.IGVFiles.append(sample)
+        def createPresign(self, link, s3Client):
+            link = link.split('/',3)
+            bucket = link[2]
+            key = link[3]
+
+            try:
+                response = s3Client.generate_presigned_url('get_object', Params={'Bucket': bucket,'Key': key},ExpiresIn=604800)
+            except ClientError as e:
+                logging.error(e)
+                return None
+
+            # The response contains the presigned URL
+            return response
+
+        def updateLinks(self, s3Client):
+            for IGVFileObj in self.IGVFiles:
+                IGVFileObj.path = self.createPresign(IGVFileObj.url, s3Client)
+                IGVFileObj.index = self.createPresign(IGVFileObj.indexUrl, s3Client)
 
         def returnS3Sample(self):
             return self.IGVFiles
@@ -190,12 +218,13 @@ class S3SamplesManager:
             def __repr__(self):
                 return f'Filename: {self.filename}, Index: {self.index}, Path: {self.path}, Type: {self.type}'
 
-            def __init__(self, filename='M0356.sorted.bam', path='https://praxisgenomics-patient-res.s3.us-east-1.amazonaws.com/nanopore/rando-ONT/bams/M0356.sorted.bam?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIASEJWMTN76OTW345Z%2F20220216%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20220216T211445Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=721f65941799c60a51d2f11d7721ff362755778414e20cd233c036c7d472156f', type='bam', index='https://praxisgenomics-patient-res.s3.us-east-1.amazonaws.com/nanopore/rando-ONT/bams/M0356.sorted.bam.bai?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIASEJWMTN76OTW345Z%2F20220216%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20220216T211449Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=920cabc890f8e13056c61552cf80753f078d7182618e3d3db9434df45355bbda'):
+            def __init__(self, filename='', url='', indexUrl='', path='', index='', type=''):
                 self.filename = filename
                 self.index = index
                 self.path = path
                 self.type = type
-
+                self.url = url
+                self.indexUrl = indexUrl
 
 def string_main():
     if not path.exists('data.pl'):
@@ -246,7 +275,7 @@ class xmlManager:
             if not elem.tail or not elem.tail.strip():
                 elem.tail = i
             for elem in elem:
-                indent(elem, level+1)
+                self.indent(elem, level+1)
             if not elem.tail or not elem.tail.strip():
                 elem.tail = i
         else:
@@ -284,8 +313,23 @@ class xmlManager:
 
 def main():
     xmlFile = xmlManager()
-    IGVFileObj = S3SamplesManager.S3Sample.IGVFile()
-    xmlFile.processFile(IGVFileObj)    
+    s3Client = b3.client('s3')
+    if not path.exists('data.pl'):
+        sampleManager = S3SamplesManager()
+        sampleManager.start(s3Client)
+        dataFile = open('data.pl', 'ab')
+        pickle.dump(sampleManager, dataFile)
+        dataFile.close()
+    else:
+        dataFile = open('data.pl', 'rb')
+        pickleData = pickle.load(dataFile)
+        sampleManager = pickleData
+        dataFile.close()
+
+    for S3Sample in sampleManager.S3Samples:
+        for IGVFileObj in S3Sample:
+            xmlFile.processFile(IGVFileObj)    
+        
     xmlFile.save()
 
 

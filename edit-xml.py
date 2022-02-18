@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import sys
 from os import path
+import json
+from json import JSONEncoder
 
 from asyncio import subprocess
 from fileinput import filename
@@ -40,6 +42,10 @@ def bool_prompt(message):
         print('Error, please type y or n')
         bool_prompt(message)
 
+class S3SamplesManagerEncoder(JSONEncoder):
+    def default(self, o):
+        return o.__dict__
+
 class S3SamplesManager:
     def __init__(self, saveFile='data.pl'):
         self.S3Samples = []
@@ -68,17 +74,21 @@ class S3SamplesManager:
             self.addS3Samples(S3SampleWithFiles)
             self.start(s3Client)
 
+    def convertToJSON(self):
+        tempJSON = json.dumps(self.S3Samples, ensure_ascii=False, indent=4)
+        print(tempJSON)
+
     class S3Sample:
 
         def __init__(self):
             self.IGVFiles = []            
 
-        def string_prompt(self, message):
+        def __string_prompt(self, message):
             val = input(message)
             if type(val) == str:
                 return val
             else:
-                self.string_prompt("Please enter string values only.\n")
+                self.__string_prompt("Please enter string values only.\n")
 
         def __bool_prompt(self, message):
             val = input(message)
@@ -90,20 +100,23 @@ class S3SamplesManager:
                 print('Error, please type y or n')
                 self.__bool_prompt(message)
         
+        def saveIGVFile(self, igvFile):
+            self.IGVFiles.append(igvFile)
+        
         def start(self, s3Client):
-            if self.__bool_prompt("Add file for sample? (y/n):\n "):
-                type = self.string_prompt("Type (VCF, BAM):\n ")
-                filename = self.string_prompt("Enter filename:\n ")
+            if self.__bool_prompt("Add file for sample? (y/n):\n"):
+                type = self.__string_prompt("Type (VCF, BAM):\n")
+                filename = self.__string_prompt("Enter filename:\n")
                 print("Enter File URL: ")
                 print("(ex. s3://praxisgenomics-patient-res/novaseq/CA0402/RES123121/e0e4956a-ad90-4cdf-9451-685aff26293f/$SAMPLE.bam)")
-                url = self.string_prompt("")
-                indexUrl = self.string_prompt("Enter File Index URL: ")
+                url = self.__string_prompt("")
+                indexUrl = self.__string_prompt("Enter File Index URL: ")
 
                 path = self.createPresign(url, s3Client) 
                 index = self.createPresign(indexUrl, s3Client) if indexUrl else ""
-                sample = self.IGVFile(filename=filename, url=url, indexUrl=indexUrl, path=path, index=index, type=type)
-                self.IGVFiles.append(sample)
+                sampleIGVFile = self.IGVFile(filename=filename, url=url, indexUrl=indexUrl, path=path, index=index, type=type)
                 
+                self.saveIGVFile(sampleIGVFile)
                 self.start(s3Client)
 
         def createPresign(self, link, s3Client):
@@ -144,6 +157,13 @@ class S3SamplesManager:
                 self.type = type
                 self.url = url
                 self.indexUrl = indexUrl
+
+            def importJSON(self, JSONObject):
+                self.filename = JSONObject["filename"]
+                self.type = JSONObject["type"]
+                self.url = JSONObject["url"]
+                self.indexUrl = JSONObject["indexUrl"]
+
 
 class xmlManager:
     def __init__(self):
@@ -238,8 +258,8 @@ def main():
     
             xmlFile.processSampleManagerSamples(sampleManager)   
             xmlFile.save()
-        elif bool_prompt("Auto Entry? (y/n):\n"):
 
+        elif bool_prompt("Auto Entry? (y/n):\n"):
             exit()
 
 
@@ -263,7 +283,62 @@ def main():
             xmlFile.processSampleManagerSamples(sampleManager)
             xmlFile.save()
 
+def test():
+    xmlFile = xmlManager()
+    s3Client = b3.client('s3')
+    s3SamplesManager = S3SamplesManager()
+    with open('test-2.json') as f:
+        data = json.load(f)
+        for key, S3sample in data.items():
+            S3SampleGroup = S3SamplesManager.S3Sample()
+            for fileObj in S3sample:
+                igvFile = S3SamplesManager.S3Sample.IGVFile()
+                igvFile.importJSON(fileObj)
+                S3SampleGroup.saveIGVFile(igvFile)
+            S3SampleGroup.updateLinks(s3Client)
+            s3SamplesManager.addS3Samples(S3SampleGroup)
+    
+    # s3SamplesManager.convertToJSON()
+    # print(S3SamplesManagerEncoder().encode(s3SamplesManager))
+    projectJSON = json.dumps(s3SamplesManager, indent=4, cls=S3SamplesManagerEncoder)
+    print(projectJSON)
+
+    with open('saved.json', "w") as f:
+        json.dump(s3SamplesManager.S3Samples, f, ensure_ascii=False, indent=4, cls=S3SamplesManagerEncoder)
+        
+    # xmlFile.processSampleManagerSamples(s3SamplesManager)
+    # xmlFile.save()
+
+def savedjsonttest():
+    xmlFile = xmlManager()
+    s3Client = b3.client('s3')
+    s3SamplesManager = S3SamplesManager()
+    with open('saved.json') as f:
+        data = json.load(f)
+        for S3Wrapper in data:
+            for key,S3SamplesGroup in S3Wrapper.items():
+                S3SampleGroup = S3SamplesManager.S3Sample()
+                for s3File in S3SamplesGroup:
+                    igvFile = S3SamplesManager.S3Sample.IGVFile()
+                    igvFile.importJSON(s3File)
+                    S3SampleGroup.saveIGVFile(igvFile)
+                S3SampleGroup.updateLinks(s3Client)
+                s3SamplesManager.addS3Samples(S3SampleGroup)
+                    
+
+
+    # projectJSON = json.dumps(s3SamplesManager, indent=4, cls=S3SamplesManagerEncoder)
+    # print(projectJSON)
+
+    with open('saved2.json', "w") as f:
+        json.dump(s3SamplesManager.S3Samples, f, ensure_ascii=False, indent=4, cls=S3SamplesManagerEncoder)
+        
+    xmlFile.processSampleManagerSamples(s3SamplesManager)
+    xmlFile.save()
+
 
 if __name__ == "__main__":
-    main()
+    savedjsonttest()
+    # test()
+    # main()
 

@@ -205,6 +205,11 @@ class xmlManager:
         alignmentTrack = ET.SubElement(panel, "Track", attributeKey=f'{igvFile.filename}', clazz="org.broad.igv.sam.AlignmentTrack", displayMode="EXPANDED", experimentType="THIRD_GEN", fontSize="10", id=f"{igvFile.path}", name=f"{igvFile.filename}", visible="false")
         renderOptions = ET.SubElement(alignmentTrack, "RenderOptions")
 
+    def addPanelWithBedgraphTrack(self, igvFile, panel):
+        bedgraphTrack = ET.SubElement(panel, "Track", attributeKey=f'{igvFile.filename}', autoScale="false", clazz="org.broad.igv.sam.DataSourceTrack", fontSize="10", id=f"{igvFile.path}", name=f'{igvFile.filename}', rendere="SCATTER_PLOT", visible="true", windowFunction="none")
+        datarange = ET.SubElement(bedgraphTrack, "DataRange", baseline="0.0", drawBaseline="true", flipAxis="false", maximum="1.0", minimum="0.0", type="LINEAR")
+        
+
 
     def addPanelWithVcfTrack(self, igvFile, panel):
         vcfTrack = ET.SubElement(panel, "Track", attributeKey=f'{igvFile.filename}', clazz="org.broad.igv.variant.VariantTrack", displayMode="COLLAPSED", fontSize="10", groupByStrand="false", id=f'{igvFile.path}', name=f'{igvFile.filename}', siteColorMode="ALLELE_FREQUENCY", squishedHeight="1", visible="true")
@@ -215,6 +220,9 @@ class xmlManager:
             self.addPanelWithBamTrack(igvFile)
         elif igvFile.type == "vcf":
             self.addPanelWithVcfTrack(igvFile)
+        elif igvFile.type == "bedgraph":
+            self.addPanelWithBedgraphTrack(igvFile)
+        
 
     def processFiles(self, S3Sample, panelID):
         panel = ET.Element("Panel", Panel="300", name=f"{panelID}", width="1311")

@@ -1,26 +1,19 @@
 #!/usr/bin/env python
 import sys
-from os import path
 import json
-from json import JSONEncoder
-
-from asyncio import subprocess
-from fileinput import filename
-from importlib.abc import ResourceReader
-from random import sample
-from typing import final
-
 
 import logging
 import xml.etree.ElementTree as ET
 import subprocess as sp
 import boto3 as b3
-from botocore.exceptions import ClientError
-import pickle
 
+from os import path
+from json import JSONEncoder
+from asyncio import subprocess
+from botocore.exceptions import ClientError
+# import pickle
 
 sys.path.append(".")
-
 
 def bash_command(cmd):
     return sp.Popen(cmd, shell=True, executable='/bin/bash', stdout=subprocess.PIPE)
@@ -110,7 +103,7 @@ class S3SamplesManager:
                 print("Enter File URL: ")
                 print("(ex. s3://praxisgenomics-patient-res/novaseq/CA0402/RES123121/e0e4956a-ad90-4cdf-9451-685aff26293f/$SAMPLE.bam)")
                 url = self.__string_prompt("")
-                indexUrl = self.__string_prompt("Enter File Index URL: ")
+                indexUrl = self.__string_prompt("Enter File Index URL:\n")
 
                 path = self.createPresign(url, s3Client) 
                 index = self.createPresign(indexUrl, s3Client) if indexUrl else ""
@@ -126,7 +119,7 @@ class S3SamplesManager:
                 key = link[3]
 
                 try:
-                    response = s3Client.generate_presigned_url('get_object', Params={'Bucket': bucket,'Key': key},ExpiresIn=600)
+                    response = s3Client.generate_presigned_url('get_object', Params={'Bucket': bucket,'Key': key},ExpiresIn=604800)
                 except ClientError as e:
                     logging.error(e)
                     return ""
@@ -209,8 +202,6 @@ class xmlManager:
         bedgraphTrack = ET.SubElement(panel, "Track", attributeKey=f'{igvFile.filename}', autoScale="false", clazz="org.broad.igv.sam.DataSourceTrack", fontSize="10", id=f"{igvFile.path}", name=f'{igvFile.filename}', rendere="SCATTER_PLOT", visible="true", windowFunction="none")
         datarange = ET.SubElement(bedgraphTrack, "DataRange", baseline="0.0", drawBaseline="true", flipAxis="false", maximum="1.0", minimum="0.0", type="LINEAR")
         
-
-
     def addPanelWithVcfTrack(self, igvFile, panel):
         vcfTrack = ET.SubElement(panel, "Track", attributeKey=f'{igvFile.filename}', clazz="org.broad.igv.variant.VariantTrack", displayMode="COLLAPSED", fontSize="10", groupByStrand="false", id=f'{igvFile.path}', name=f'{igvFile.filename}', siteColorMode="ALLELE_FREQUENCY", squishedHeight="1", visible="true")
 
@@ -254,99 +245,43 @@ def main():
     s3Client = b3.client('s3')
 
     if bool_prompt("Create new IGV session? (y/n):\n"):
-        pickleFileName = string_prompt("Please enter a filename that you wish to store data too:\n")
-        sampleManager = S3SamplesManager(pickleFileName)
+        saveFileName = string_prompt("Please enter a filename that you wish to store data too: (Don't include filetype ie. .json etc) \n")
+        s3SamplesManager = S3SamplesManager(saveFileName)
         
         if bool_prompt("Manual Entry? (y/n):\n"):
-            sampleManager.start(s3Client)
+            s3SamplesManager.start(s3Client)
             
-            dataFile = open(pickleFileName, 'ab')
-            pickle.dump(sampleManager, dataFile)
-            dataFile.close()
+            with open(f'{saveFileName}.json', "w") as f:
+                json.dump(s3SamplesManager.S3Samples, f, ensure_ascii=False, indent=4, cls=S3SamplesManagerEncoder)
     
-            xmlFile.processSampleManagerSamples(sampleManager)   
-            xmlFile.save()
-
-        elif bool_prompt("Auto Entry? (y/n):\n"):
-            exit()
+            xmlFile.processSampleManagerSamples(s3SamplesManager)   
+            xmlFile.save(f'{s3SamplesManager.saveFile}.xml')
 
 
     elif bool_prompt("Load existing IGV session? (y/n):\n"):
-        pickleFileName = string_prompt("Enter data filename:\n")
+        saveFileName = string_prompt("Enter savefile name: (Don't include .json) \n")
         if bool_prompt("Would you like to regenerate this session? (y/n)\n"):
-            
-            dataFile = open(pickleFileName, 'rb')
-            pickleData = pickle.load(dataFile)
-            dataFile.close()
+            s3SamplesManager = S3SamplesManager(saveFileName)
+            with open(f'{saveFileName}.json') as f:
+                data = json.load(f)
+                for S3Wrapper in data:
+                    for key, S3SamplesGroup in S3Wrapper.items():
+                        S3SampleGroup = S3SamplesManager.S3Sample()
+                        for s3File in S3SamplesGroup:
+                            igvFile = S3SamplesManager.S3Sample.IGVFile()
+                            igvFile.importJSON(s3File)
+                            S3SampleGroup.saveIGVFile(igvFile)
+                        S3SampleGroup.updateLinks(s3Client)
+                        s3SamplesManager.addS3Samples(S3SampleGroup)
 
-            sampleManager = pickleData
-        
-            for S3Sample in sampleManager.S3Samples:
-                S3Sample.updateLinks(s3Client)
-            
-            dataFile = open(pickleFileName, 'wb')
-            pickle.dump(sampleManager, dataFile)
-            dataFile.close()
+            with open(f'{saveFileName}.json', "w") as f:
+                json.dump(s3SamplesManager.S3Samples, f, ensure_ascii=False, indent=4, cls=S3SamplesManagerEncoder)
 
-            xmlFile.processSampleManagerSamples(sampleManager)
-            xmlFile.save()
+        xmlFile.processSampleManagerSamples(s3SamplesManager)
+        xmlFile.save(f'{s3SamplesManager.saveFile}.xml')
 
-def test():
-    xmlFile = xmlManager()
-    s3Client = b3.client('s3')
-    s3SamplesManager = S3SamplesManager()
-    with open('test-2.json') as f:
-        data = json.load(f)
-        for key, S3sample in data.items():
-            S3SampleGroup = S3SamplesManager.S3Sample()
-            for fileObj in S3sample:
-                igvFile = S3SamplesManager.S3Sample.IGVFile()
-                igvFile.importJSON(fileObj)
-                S3SampleGroup.saveIGVFile(igvFile)
-            S3SampleGroup.updateLinks(s3Client)
-            s3SamplesManager.addS3Samples(S3SampleGroup)
-    
-    # s3SamplesManager.convertToJSON()
-    # print(S3SamplesManagerEncoder().encode(s3SamplesManager))
-    projectJSON = json.dumps(s3SamplesManager, indent=4, cls=S3SamplesManagerEncoder)
-    print(projectJSON)
-
-    with open('saved.json', "w") as f:
-        json.dump(s3SamplesManager.S3Samples, f, ensure_ascii=False, indent=4, cls=S3SamplesManagerEncoder)
-        
-    # xmlFile.processSampleManagerSamples(s3SamplesManager)
-    # xmlFile.save()
-
-def savedjsonttest():
-    xmlFile = xmlManager()
-    s3Client = b3.client('s3')
-    s3SamplesManager = S3SamplesManager()
-    with open('saved.json') as f:
-        data = json.load(f)
-        for S3Wrapper in data:
-            for key,S3SamplesGroup in S3Wrapper.items():
-                S3SampleGroup = S3SamplesManager.S3Sample()
-                for s3File in S3SamplesGroup:
-                    igvFile = S3SamplesManager.S3Sample.IGVFile()
-                    igvFile.importJSON(s3File)
-                    S3SampleGroup.saveIGVFile(igvFile)
-                S3SampleGroup.updateLinks(s3Client)
-                s3SamplesManager.addS3Samples(S3SampleGroup)
-                    
-
-
-    # projectJSON = json.dumps(s3SamplesManager, indent=4, cls=S3SamplesManagerEncoder)
-    # print(projectJSON)
-
-    with open('saved2.json', "w") as f:
-        json.dump(s3SamplesManager.S3Samples, f, ensure_ascii=False, indent=4, cls=S3SamplesManagerEncoder)
-        
-    xmlFile.processSampleManagerSamples(s3SamplesManager)
-    xmlFile.save()
 
 
 if __name__ == "__main__":
-    savedjsonttest()
-    # test()
-    # main()
+    main()
 

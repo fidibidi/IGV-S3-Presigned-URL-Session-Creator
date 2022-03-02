@@ -12,7 +12,6 @@ from tkinter import filedialog as fd
 from tkinter.messagebox import showinfo
 
 from botocore.exceptions import ClientError
-from isort import file
 
 class IGVFile:
     def __repr__(self):

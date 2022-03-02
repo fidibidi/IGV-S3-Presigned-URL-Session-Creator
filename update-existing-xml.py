@@ -70,6 +70,7 @@ def extractInfoFromResource(resource):
             IGVSampleData.index = createPresign(s3Key)
             print(IGVSampleData.index)
             resource.set('index', IGVSampleData.index)
+
     if not IGVSampleData.url:
         IGVSampleData = False
 

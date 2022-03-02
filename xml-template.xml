@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="hg38" hasGeneTrack="true" hasSequenceTrack="true" locus="chr1" nextAutoscaleGroup="2" version="8">
+    <Resources>
+    </Resources>
+    <Panel height="54" name="FeaturePanel" width="1311">
+        <Track attributeKey="Reference sequence" clazz="org.broad.igv.track.SequenceTrack" fontSize="10" id="Reference sequence" name="Reference sequence" sequenceTranslationStrandValue="POSITIVE" shouldShowTranslation="false" visible="true" />
+        <Track attributeKey="Gene" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" colorScale="ContinuousColorScale;0.0;845.0;255,255,255;0,0,178" fontSize="10" groupByStrand="false" height="35" id="hg38_genes" name="Gene" visible="true" />
+    </Panel>
+    <PanelLayout dividerFractions="0.2126642771804062,0.4336917562724014,0.6798088410991637,0.929510155316607" />
+    <HiddenAttributes>
+        <Attribute name="DATA FILE" />
+        <Attribute name="DATA TYPE" />
+        <Attribute name="NAME" />
+    </HiddenAttributes>
+</Session>

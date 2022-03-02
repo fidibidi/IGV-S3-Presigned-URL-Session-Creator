@@ -1,20 +1,12 @@
 #!/usr/bin/env python
-from dataclasses import replace
 import sys
-import json
 
 import logging
 import xml.etree.ElementTree as ET
-import subprocess as sp
 import boto3 as b3
 import datetime
 
-from json import JSONEncoder
-from asyncio import subprocess
 from botocore.exceptions import ClientError
-from numpy import extract
-from sqlalchemy import false
-from S3Sample import S3Sample
 
 class IGVFile:
     def __repr__(self):

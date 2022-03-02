@@ -68,7 +68,6 @@ def extractInfoFromResource(resource):
             sampleName, s3Key = splitTSSUrl(indexUrl)
             IGVSampleData.indexUrl = s3Key
             IGVSampleData.index = createPresign(s3Key)
-            print(IGVSampleData.index)
             resource.set('index', IGVSampleData.index)
 
     if not IGVSampleData.url:

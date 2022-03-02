@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import sys
 import json
 
@@ -7,7 +7,6 @@ import xml.etree.ElementTree as ET
 import subprocess as sp
 import boto3 as b3
 
-from os import path
 from json import JSONEncoder
 from asyncio import subprocess
 from botocore.exceptions import ClientError

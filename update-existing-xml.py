@@ -70,6 +70,9 @@ def extractInfoFromResource(resource):
             IGVSampleData.index = createPresign(s3Key)
             print(IGVSampleData.index)
             resource.set('index', IGVSampleData.index)
+    if not IGVSampleData.url:
+        IGVSampleData = False
+
     return IGVSampleData
 
 def replaceOldLinks(xmlFile, IGVSample):
@@ -104,7 +107,7 @@ def main():
     for resources in xmlFileManager.root.findall('Resources'):
         for resource in resources.findall('Resource'):
             IGVFileObj = extractInfoFromResource(resource)
-            if IGVFileObj.url:
+            if IGVFileObj:
                 replaceOldLinks(xmlFileManager.mainTree, IGVFileObj)
     
     xmlFileManager.save()

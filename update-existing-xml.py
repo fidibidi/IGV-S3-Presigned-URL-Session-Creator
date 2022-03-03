@@ -84,7 +84,6 @@ def replaceOldLinks(xmlFile, IGVSample):
         if track.attrib['id'] == f'{IGVSample.oldUrl}_coverage':
             track.set('id', f'{IGVSample.path}_coverage')
 
-
 s3Client = b3.client('s3')
 
 class xmlManager:

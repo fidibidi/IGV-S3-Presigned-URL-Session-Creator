@@ -4,3 +4,4 @@
 *.json
 *.pl
 __pycache__
+testing.py

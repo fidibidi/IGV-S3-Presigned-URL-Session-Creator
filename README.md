@@ -13,13 +13,20 @@ aws cli must be installed, and aws configure must be run.
 
 You may have to modify code to match the S3 path structure of your xmls. This is currently hard-coded to work for my xmls. 
 
+
+## Additional Set Up
 If you plan on creating .exe, which I would recommend, you'll need pyinstaller installed.
 
 Can be done with pip install pyinstaller. 
 on windows I recommend following these instructions. https://datatofish.com/executable-pyinstaller/
 
-# Run
+```
+pyinstaller --onefile update-existing-xml.py
+```
 
+You can then just drag the file you want updated onto the .exe, making a very simple app to use. 
+
+# Run
 
 From terminal, or cmd prompt just run:
 ```

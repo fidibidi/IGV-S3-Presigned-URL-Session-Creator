@@ -75,12 +75,19 @@ class S3SamplesManager:
         def __init__(self):
             self.IGVFiles = []            
 
+        def __filetype_prompt(self, message):
+            val = input(message)
+            if val.lower() == 'vcf' or val.lower() == 'bam':
+                return val
+            else:
+                self.__string_prompt("Please enter vcf or bam please.\n")
+
         def __string_prompt(self, message):
             val = input(message)
             if type(val) == str:
                 return val
             else:
-                self.__string_prompt("Please enter string values only.\n")
+                self.__string_prompt("String response only please. \n")
 
         def __bool_prompt(self, message):
             val = input(message)
@@ -97,12 +104,16 @@ class S3SamplesManager:
         
         def start(self, s3Client):
             if self.__bool_prompt("Add file for sample? (y/n):\n"):
-                type = self.__string_prompt("Type (VCF, BAM):\n")
+                
                 filename = self.__string_prompt("Enter filename:\n")
+
+                type = self.__filetype_prompt("Type (VCF, BAM):\n")
+
                 print("Enter File URL: ")
                 print("(ex. s3://praxisgenomics-patient-res/novaseq/CA0402/RES123121/e0e4956a-ad90-4cdf-9451-685aff26293f/$SAMPLE.bam)")
                 url = self.__string_prompt("")
-                indexUrl = self.__string_prompt("Enter File Index URL:\n")
+
+                indexUrl = self.__string_prompt("Enter File Index URL (leave blank if none):\n")
 
                 path = self.createPresign(url, s3Client) 
                 index = self.createPresign(indexUrl, s3Client) if indexUrl else ""

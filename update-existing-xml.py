@@ -62,7 +62,7 @@ def extractInfoFromResource(resource):
             IGVSampleData.path = createPresign(s3Key)
             resource.set('path', IGVSampleData.path)
     if "index" in existingKeys:
-        if 'https://' in resource.get('path'):
+        if 'https://' in resource.get('index'):
             indexUrl = resource.get('index')
             IGVSampleData.oldIndexUrl = indexUrl
             sampleName, s3Key = splitTSSUrl(indexUrl)

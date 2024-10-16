@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys
+import os,sys
 
 import logging
 import xml.etree.ElementTree as ET
@@ -87,22 +87,30 @@ def replaceOldLinks(xmlFile, IGVSample):
 s3Client = b3.client('s3')
 
 class xmlManager:
-    def __init__(self, xmlToParse):
+    def __init__(self, xmlToParse, fileName, dirPath):
         self.mainTree = ET.parse(xmlToParse)
         self.root = self.mainTree.getroot()
-        self.fileName = xmlToParse.split('.xml')[0]
+        self.fileName = fileName
+        self.dirPath = dirPath 
 
     def backup(self):
-        self.mainTree.write(f'{self.fileName}.original-backup.xml')
+        self.mainTree.write(os.path.join(self.dirPath,f'{self.fileName}.original.xml'))
 
     def save(self):
-        date = datetime.datetime.today().strftime ('%m%d%Y')
-        self.mainTree.write(f'{self.fileName}.{date}.xml')
+        date = datetime.datetime.today().strftime('%Y%m%d%H%M%S')
+        newName = self.fileName.split('.')[0]
+        finalName = self.fileName
+        if (newName):
+            finalName = newName
+        self.mainTree.write(os.path.join(self.dirPath,f'{finalName}.regen-{date}.dragen.xml'))
+        logging.info("Successfully Saved")
 
 def main():
     xmlFile = sys.argv[1]
-    xmlFileManager = xmlManager(xmlFile)
-    
+    fileName = os.path.basename(xmlFile)
+    dirPath = os.path.dirname(xmlFile)
+    xmlFileManager = xmlManager(xmlFile, fileName, dirPath)
+      
     for resources in xmlFileManager.root.findall('Resources'):
         for resource in resources.findall('Resource'):
             IGVFileObj = extractInfoFromResource(resource)
